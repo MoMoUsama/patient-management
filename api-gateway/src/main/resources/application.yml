@@ -1,0 +1,27 @@
+
+server:
+  port: 4004 # the port that the gatway will work on
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        # Client send: http://localhost:4004/apipatients
+        # API Gateway: http://patient-service:400/patients
+
+        - id: patient-service-route
+          uri: http://patient-service:4000  #internal docker address to the service
+          predicates: #what requests to be sent to the service
+            - Path=/api/patients/**
+          filters: # re-write the request before it sent to the service
+            - StripPrefix=1
+
+
+        # Client send: http://localhost:4004/api-docs/patients
+        # API Gateway: http://patient-service:4000/v3/api-docs
+        - id: api-docs-patient-route
+          uri: http://patient-service:4000  #internal docker address to the service
+          predicates: #what requests to be sent to the service
+            - Path=/api-docs/patients
+          filters: # re-write the request before it sent to the service
+            - RewritePath=/api-docs/patients,/v3/api-docs

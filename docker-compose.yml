@@ -1,0 +1,162 @@
+services:
+  # --- MySQL Database ---
+  mysql-db:
+    image: mysql:8.0              # ✅ use official image
+    container_name: my-db-container
+    environment:
+      MYSQL_ROOT_PASSWORD: my-secret-pw
+      MYSQL_DATABASE: patient_service_db
+      MYSQL_USER: patient_service_user
+      MYSQL_PASSWORD: user-password
+    ports:
+      - "5000:3306"
+    volumes:
+      - ./DB/sql-scripts:/docker-entrypoint-initdb.d
+     # - ./volumes/mysql:/var/lib/mysql
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pmy-secret-pw"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # --- AUTH Database ---
+  auth-db:
+    image: mysql:8.0              # ✅ use official image
+    container_name: auth-db-container
+    environment:
+      MYSQL_ROOT_PASSWORD: my-secret-pw
+      MYSQL_DATABASE: auth_db
+      MYSQL_USER: auth_user
+      MYSQL_PASSWORD: user-password
+    ports:
+      - "5001:3306"
+    volumes:
+      - ./DB/sql-scripts:/docker-entrypoint-initdb.d
+      # - ./volumes/auth-db:/var/lib/mysql
+    networks:
+      - internal
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pmy-secret-pw" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+
+  # --- Spring Boot Application ---
+  patient-service:
+    build:
+      context: ./patient-service                  # ✅ keep build for your app
+    container_name: patient-service-container
+    #ports: # we cannot access this microservice (we should use the api-gateway)
+    #  - "4000:4000"
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/patient_service_db?useUnicode=true&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: patient_service_user
+      SPRING_DATASOURCE_PASSWORD: user-password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      BILLING_SERVICE_ADDRESS: billing-service-container
+      BILLING_SERVICE_GRPC_PORT: 9001
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092  #tells spring where the broaker is
+    volumes:
+      - ~/.m2:/root/.m2
+      - ./logs:/app/log
+    networks:
+      - internal
+    command: ["sh", "-c", "sleep 10 && java -jar app.jar"]
+
+
+  # --- Spring Boot Application ---
+  billing-service:
+    build:
+      context: ./billing-service
+    container_name: billing-service-container
+    ports:
+      - "4001:4001"
+      - "9001:9001"
+    volumes:
+      - ~/.m2:/root/.m2
+    networks:
+      - internal
+
+
+  # --- Spring Boot Application ---
+  analytics-service:
+    build:
+      context: ./analytics-service
+    container_name: analytics-service-container
+    ports:
+      - "4002:4002"
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092  #tells spring where the broaker is
+    volumes:
+      - ~/.m2:/root/.m2
+    networks:
+      - internal
+
+  # --- AUTH-Service ---
+  auth-service:
+    build:
+      context: ./auth-service
+    container_name: auth-service-container
+    ports: # we cannot access this microservice (we should use the api-gateway)
+      - "4005:4005"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://auth-db:3306/auth_db?useUnicode=true&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: auth_user
+      SPRING_DATASOURCE_PASSWORD: user-password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_SQL_INIT_MODE: always
+    volumes:
+      - ~/.m2:/root/.m2
+    networks:
+      - internal
+    command: ["sh", "-c", "sleep 10 && java -jar app.jar"]
+
+
+
+  # --- API  Gateway ---
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: api-gateway-container
+    ports:
+      - "4004:4004"
+    volumes:
+      - ~/.m2:/root/.m2
+    networks:
+      - internal
+
+
+
+  # --- Kafka Container ---
+  kafka:
+    image: bitnami/kafka:latest
+    container_name: kafka-container
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    environment:
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+    networks:
+      - internal
+
+
+# --- Networks ---
+networks:
+  internal:

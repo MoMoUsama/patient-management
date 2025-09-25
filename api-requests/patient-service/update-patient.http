@@ -1,0 +1,12 @@
+### Update patient information
+PUT http://localhost:4000/patients/f7d2e156-eff2-4c0d-83d9-56bb9a86537f
+Content-Type: application/json
+
+{
+  "name": "Mohamed Osama22",
+  "email": "O12sama22@yahoo.com",
+  "address": "6th Of October city",
+  "dateOfBirth": "2000-08-08"
+}
+
+###

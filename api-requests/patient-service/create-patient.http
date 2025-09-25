@@ -1,0 +1,12 @@
+### POST request to create new patient
+POST http://localhost:4004/api/patients
+Content-Type: application/json
+
+{
+  "name": "abdo",
+  "email": "abdo_btrt_test@yahoo.com",
+  "dateOfBirth": "2000-08-08",
+  "registeredDate": "2001-09-09",
+  "address": "6th Of October city"
+}
+###

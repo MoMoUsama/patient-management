@@ -1,0 +1,11 @@
+
+## specify the service as the proto file
+GRPC localhost:9001/billing.BillingService/CreateBillingAccount
+
+{
+  "patientId": "12333",
+  "name": "Johne Doe",
+  "email": "JohneDoe@yahoo.com"
+}
+
+###
