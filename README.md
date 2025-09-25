@@ -16,7 +16,7 @@ The architecture follows modern distributed system principles, with each service
 ---
 
 ## System Architecture
-![System Architecture](./Assets/Architecture.drawio.png)   
+![System Architecture](./Aassets/Architecture.drawio.png)   
 
 ---
 
